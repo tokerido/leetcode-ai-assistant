@@ -107,6 +107,8 @@ describe("GeminiProvider", () => {
     const [url] = fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("gemini-key");
     expect(url).toContain("generativelanguage.googleapis.com");
+    expect(url).toContain("v1beta");
+    expect(url).toContain("gemini-2.0-flash");
   });
 
   it("merges system prompt into user message (no system_instruction field)", async () => {
