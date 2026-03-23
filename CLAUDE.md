@@ -56,7 +56,7 @@ leetcode.com page
 
 - Claude: `claude-opus-4-6`, Anthropic Messages API
 - OpenAI: `gpt-4o`, Chat Completions API
-- Gemini: `gemini-1.5-flash`, `v1` endpoint (not `v1beta`) — `v1beta` returns 404 for this model
+- Gemini: `gemini-2.5-flash`, `v1beta` endpoint
 
 ### Key constraints
 
@@ -64,6 +64,10 @@ leetcode.com page
 - The `action` in `manifest.json` must have **no `default_popup`** — otherwise `chrome.action.onClicked` never fires and the side panel never opens. Side panel opens via `setPanelBehavior({ openPanelOnActionClick: true })` set in `onInstalled`.
 - `chrome.tabs.query` in the sidepanel requires the `"tabs"` permission in the manifest.
 - No icons are configured; Chrome shows a default puzzle-piece icon.
+
+### Submission Interception
+
+`public/submission-interceptor.js` is injected into the page to intercept XHR/fetch calls and detect when a submission returns "Accepted". It fires a custom DOM event that `src/content/index.ts` listens to and forwards as a `PROBLEM_SOLVED` message to the background service worker, which then updates `chrome.storage.local` stats.
 
 ### Data
 
