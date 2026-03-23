@@ -24,5 +24,11 @@
   "side_panel": {
     "default_path": "src/sidepanel/index.html"
   },
-  "action": {}
+  "action": {},
+  "web_accessible_resources": [
+    {
+      "resources": ["submission-interceptor.js"],
+      "matches": ["https://leetcode.com/*"]
+    }
+  ]
 }

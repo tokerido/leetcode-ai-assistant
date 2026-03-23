@@ -1,6 +1,8 @@
 import { getProblemContext, getProblemSlug } from "./leetcode";
 import { hookMonacoAutocomplete } from "./monaco";
 
+const DEBUG = false;
+
 // Initialize when page loads
 function init() {
   const slug = getProblemSlug();
@@ -9,32 +11,33 @@ function init() {
   // Hook Monaco autocomplete
   hookMonacoAutocomplete();
 
-  // Observe submission results for statistics tracking
-  observeSubmissionResults();
+  // Inject fetch interceptor and listen for accepted submissions
+  injectSubmissionInterceptor();
+  listenForAcceptedSubmission();
 
   // Notify sidepanel that we're on a problem page
   const context = getProblemContext();
   chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: context });
 }
 
-function observeSubmissionResults() {
-  const observer = new MutationObserver(() => {
-    // Look for "Accepted" submission result
-    const resultEl =
-      document.querySelector('[data-e2e-locator="submission-result"]') ||
-      document.querySelector(".text-green-s") ||
-      document.querySelector('[class*="accepted"]');
+function injectSubmissionInterceptor() {
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("submission-interceptor.js");
+  script.onload = () => script.remove();
+  (document.head || document.documentElement).appendChild(script);
+}
 
-    if (resultEl?.textContent?.includes("Accepted")) {
-      const context = getProblemContext();
-      chrome.runtime.sendMessage({
-        type: "PROBLEM_SOLVED",
-        payload: context,
-      });
-    }
+function listenForAcceptedSubmission() {
+  window.addEventListener("message", (event) => {
+    if (
+      event.source !== window ||
+      event.data?.source !== "leetcode-ai-interceptor" ||
+      event.data?.type !== "SUBMISSION_ACCEPTED"
+    ) return;
+    if (DEBUG) console.log("[Content] Intercepted accepted submission");
+    const context = getProblemContext();
+    chrome.runtime.sendMessage({ type: "PROBLEM_SOLVED", payload: context });
   });
-
-  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // Respond to side panel requesting context

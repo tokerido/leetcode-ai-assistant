@@ -95,6 +95,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>("hints");
   const [context, setContext] = useState<ProblemContext | null>(null);
   const [companies, setCompanies] = useState<string[]>([]);
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   useEffect(() => {
     // Listen for context updates from content script
@@ -105,7 +106,7 @@ export function App() {
         setCompanies(getCompaniesForSlug(ctx.slug));
       }
       if (message.type === "PROBLEM_SOLVED") {
-        // Could refresh stats here
+        setStatsRefreshKey(k => k + 1);
       }
     });
 
@@ -178,7 +179,7 @@ export function App() {
             {activeTab === "optimize" && context && (
               <Optimizer code={context.code} language={context.language} title={context.title} />
             )}
-            {activeTab === "stats" && <Statistics />}
+            {activeTab === "stats" && <Statistics refreshKey={statsRefreshKey} />}
             {activeTab === "company" && <TrainByCompany />}
             {activeTab === "weakness" && <TrainWeakness />}
             {activeTab === "settings" && <SettingsPanel />}

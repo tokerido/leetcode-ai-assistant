@@ -14,7 +14,7 @@ export interface LLMSettings {
 }
 
 export interface MessageRequest {
-  type: "LLM_COMPLETE" | "GET_SETTINGS" | "SAVE_SETTINGS" | "GET_STATS" | "SAVE_STATS";
+  type: "LLM_COMPLETE" | "GET_SETTINGS" | "SAVE_SETTINGS" | "GET_STATS" | "SAVE_STATS" | "PROBLEM_SOLVED" | "PAGE_CONTEXT" | "GET_CONTEXT" | "IMPORT_SOLVED";
   payload?: unknown;
 }
 

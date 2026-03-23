@@ -2,13 +2,23 @@ import { useEffect, useState } from "react";
 import type { Statistics as StatsType } from "../storage/statistics";
 import type { MessageResponse } from "../llm/types";
 
-export function Statistics() {
+export function Statistics({ refreshKey }: { refreshKey?: number }) {
   const [stats, setStats] = useState<StatsType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   useEffect(() => {
     loadStats();
-  }, []);
+
+    const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === "local" && changes.statistics) {
+        loadStats();
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, [refreshKey]);
 
   async function loadStats() {
     const response = await chrome.runtime.sendMessage({ type: "GET_STATS" }) as MessageResponse;
@@ -16,6 +26,22 @@ export function Statistics() {
       setStats(response.data as StatsType);
     }
     setLoading(false);
+  }
+
+  async function handleImport() {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "IMPORT_SOLVED" }) as MessageResponse;
+      if (response.success) {
+        setImportResult(`Imported ${(response.data as { imported: number }).imported} problems.`);
+        await loadStats();
+      } else {
+        setImportResult(`Error: ${response.error}`);
+      }
+    } finally {
+      setImporting(false);
+    }
   }
 
   if (loading) return <div className="p-4 text-sm text-gray-500 animate-pulse">Loading stats...</div>;
@@ -48,6 +74,17 @@ export function Statistics() {
             <span className="font-bold">{stats.byDifficulty.Hard}</span>
           </div>
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <button
+          onClick={handleImport}
+          disabled={importing}
+          className="w-full py-2 px-4 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
+        >
+          {importing ? "Importing..." : "Import Solved from LeetCode"}
+        </button>
+        {importResult && <p className="text-xs text-center text-gray-500">{importResult}</p>}
       </div>
 
       {topPatterns.length > 0 && (
