@@ -23,17 +23,20 @@ export function Hints({ title, description }: HintsProps) {
         payload: {
           prompt: buildHintsPrompt(title, description),
           systemPrompt: HINTS_SYSTEM,
-          maxTokens: 1024,
+          maxTokens: 2048,
         },
       }) as MessageResponse;
 
       if (!response.success) throw new Error(response.error || "Failed to load hints");
 
       const text = response.data as string;
-      const match = text.match(/\[[\s\S]*\]/);
-      if (match) {
-        const parsed = JSON.parse(match[0]) as string[];
-        setHints(parsed);
+      const hints = text
+        .split('\n')
+        .filter(line => /^\d+\./.test(line.trim()))
+        .map(line => line.replace(/^\d+\.\s*/, '').trim())
+        .filter(Boolean);
+      if (hints.length > 0) {
+        setHints(hints);
         setRevealedCount(1);
       } else {
         setHints([text]);

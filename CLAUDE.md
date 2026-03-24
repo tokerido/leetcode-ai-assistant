@@ -72,3 +72,8 @@ leetcode.com page
 ### Data
 
 `src/data/company-tags.ts` is a static bundled dataset (57 problems). It is imported directly — no API call. The Train by Company and Train Weakness features filter this dataset against `chrome.storage.local` stats.
+
+## Planned Features
+
+### Streaming LLM Responses
+LLM responses currently use request/response (`sendMessage`) — users wait for the full response before seeing anything. A streaming upgrade using Chrome port-based messaging (`chrome.runtime.connect()`) is the next planned feature after the current branch merges. See memory file `project_streaming_future.md` for the full design.
