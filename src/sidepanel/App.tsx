@@ -125,7 +125,7 @@ export function App() {
   }, []);
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-full bg-gray-50 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <h1 className="text-base font-bold text-gray-900">LeetCode AI Assistant</h1>
