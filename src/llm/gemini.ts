@@ -15,7 +15,7 @@ export class GeminiProvider implements LLMProvider {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
-        generationConfig: { maxOutputTokens: 2048 },
+        generationConfig: { maxOutputTokens: 4096 },
       }),
     });
 
@@ -35,7 +35,7 @@ export class GeminiProvider implements LLMProvider {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
-        generationConfig: { maxOutputTokens: 2048 },
+        generationConfig: { maxOutputTokens: 4096 },
       }),
     });
 

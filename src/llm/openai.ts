@@ -21,7 +21,7 @@ export class OpenAIProvider implements LLMProvider {
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        max_tokens: 2048,
+        max_tokens: 4096,
       }),
     });
 
@@ -48,7 +48,7 @@ export class OpenAIProvider implements LLMProvider {
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        max_tokens: 2048,
+        max_tokens: 4096,
       }),
     });
 
