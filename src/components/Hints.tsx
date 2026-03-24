@@ -23,6 +23,7 @@ export function Hints({ title, description }: HintsProps) {
         payload: {
           prompt: buildHintsPrompt(title, description),
           systemPrompt: HINTS_SYSTEM,
+          maxTokens: 1024,
         },
       }) as MessageResponse;
 

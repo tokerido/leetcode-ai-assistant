@@ -1,7 +1,7 @@
 export interface LLMProvider {
   name: string;
-  complete(prompt: string, systemPrompt: string): Promise<string>;
-  stream?(prompt: string, systemPrompt: string): AsyncGenerator<string>;
+  complete(prompt: string, systemPrompt: string, maxTokens?: number): Promise<string>;
+  stream?(prompt: string, systemPrompt: string, maxTokens?: number): AsyncGenerator<string>;
 }
 
 export type LLMProviderName = "claude" | "openai" | "gemini";
@@ -22,6 +22,7 @@ export interface LLMCompleteRequest {
   prompt: string;
   systemPrompt: string;
   provider?: LLMProviderName;
+  maxTokens?: number;
 }
 
 export interface MessageResponse {

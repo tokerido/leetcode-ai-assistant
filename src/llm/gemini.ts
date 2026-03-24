@@ -8,14 +8,14 @@ export class GeminiProvider implements LLMProvider {
     this.apiKey = apiKey;
   }
 
-  async complete(prompt: string, systemPrompt: string): Promise<string> {
+  async complete(prompt: string, systemPrompt: string, maxTokens = 4096): Promise<string> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: { maxOutputTokens: maxTokens },
       }),
     });
 
@@ -28,14 +28,14 @@ export class GeminiProvider implements LLMProvider {
     return data.candidates[0].content.parts[0].text;
   }
 
-  async *stream(prompt: string, systemPrompt: string): AsyncGenerator<string> {
+  async *stream(prompt: string, systemPrompt: string, maxTokens = 4096): AsyncGenerator<string> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${this.apiKey}`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: { maxOutputTokens: maxTokens },
       }),
     });
 

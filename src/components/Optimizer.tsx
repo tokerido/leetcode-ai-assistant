@@ -28,6 +28,7 @@ export function Optimizer({ code, language, title }: OptimizerProps) {
         payload: {
           prompt: buildOptimizePrompt(code, title, language),
           systemPrompt: OPTIMIZE_SYSTEM,
+          maxTokens: 8192,
         },
       }) as MessageResponse;
 

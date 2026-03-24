@@ -28,6 +28,7 @@ export function ErrorExplainer({ code, language }: ErrorExplainerProps) {
         payload: {
           prompt: buildErrorPrompt(code, errorText, language),
           systemPrompt: ERRORS_SYSTEM,
+          maxTokens: 2048,
         },
       }) as MessageResponse;
 

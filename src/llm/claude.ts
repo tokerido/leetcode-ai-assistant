@@ -8,7 +8,7 @@ export class ClaudeProvider implements LLMProvider {
     this.apiKey = apiKey;
   }
 
-  async complete(prompt: string, systemPrompt: string): Promise<string> {
+  async complete(prompt: string, systemPrompt: string, maxTokens = 4096): Promise<string> {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -18,7 +18,7 @@ export class ClaudeProvider implements LLMProvider {
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -33,7 +33,7 @@ export class ClaudeProvider implements LLMProvider {
     return data.content[0].text;
   }
 
-  async *stream(prompt: string, systemPrompt: string): AsyncGenerator<string> {
+  async *stream(prompt: string, systemPrompt: string, maxTokens = 4096): AsyncGenerator<string> {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -43,7 +43,7 @@ export class ClaudeProvider implements LLMProvider {
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         stream: true,
         system: systemPrompt,
         messages: [{ role: "user", content: prompt }],

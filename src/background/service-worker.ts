@@ -91,7 +91,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function handleLLMComplete(req: LLMCompleteRequest): Promise<string> {
   const provider = await getActiveProvider();
-  return provider.complete(req.prompt, req.systemPrompt);
+  return provider.complete(req.prompt, req.systemPrompt, req.maxTokens);
 }
 
 async function importSolvedProblems(): Promise<number> {

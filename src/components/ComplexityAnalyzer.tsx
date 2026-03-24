@@ -27,6 +27,7 @@ export function ComplexityAnalyzer({ code, language }: ComplexityAnalyzerProps) 
         payload: {
           prompt: buildComplexityPrompt(code, language),
           systemPrompt: COMPLEXITY_SYSTEM,
+          maxTokens: 1024,
         },
       }) as MessageResponse;
 
