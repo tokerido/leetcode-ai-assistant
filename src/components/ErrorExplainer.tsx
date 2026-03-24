@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { MessageResponse } from "../llm/types";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 import { buildErrorPrompt, ERRORS_SYSTEM } from "../prompts/errors";
 
 interface ErrorExplainerProps {
@@ -58,7 +59,7 @@ export function ErrorExplainer({ code, language }: ErrorExplainerProps) {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {result && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <pre className="text-sm text-gray-700 whitespace-pre-wrap">{result}</pre>
+          <MarkdownRenderer content={result} />
         </div>
       )}
     </div>

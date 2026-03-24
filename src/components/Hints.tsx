@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 import type { MessageResponse } from "../llm/types";
 import { buildHintsPrompt, HINTS_SYSTEM } from "../prompts/hints";
 
@@ -60,7 +61,7 @@ export function Hints({ title, description }: HintsProps) {
       {hints.slice(0, revealedCount).map((hint, i) => (
         <div key={i} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm font-medium text-yellow-700">Hint {i + 1}</p>
-          <p className="text-sm text-gray-700 mt-1">{hint}</p>
+          <div className="mt-1"><MarkdownRenderer content={hint} /></div>
         </div>
       ))}
       {hints.length > 0 && revealedCount < hints.length && (
