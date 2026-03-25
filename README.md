@@ -5,9 +5,9 @@ A Chrome Extension that supercharges your LeetCode practice with AI-powered hint
 ## Features
 
 - **Hints**: Progressive hint reveal so you can unblock yourself without spoiling the solution
-- **Complexity Analysis**: Instant time/space complexity breakdown of your current code
+- **Complexity Analysis**: Instant time and space complexity breakdown of your current code, rendered with proper markdown formatting
 - **Error Explainer**: Paste a failing test case and get a plain-English explanation of the bug
-- **Optimizer**: Get suggestions to improve runtime or memory usage
+- **Optimizer**: Get a fully optimized rewrite with bullet-point explanation of changes and before/after complexity
 - **Statistics**: Automatically tracks problems you solve (detected via submission interception)
 - **Train by Company**: Filter practice problems by the company you're targeting
 - **Train by Weakness**: Identify and drill your weakest problem categories
