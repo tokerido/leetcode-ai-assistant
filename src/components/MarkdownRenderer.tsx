@@ -13,12 +13,14 @@ const components: Components = {
   ol: ({ children }) => <ol className="list-decimal list-outside pl-4 mb-2 space-y-1">{children}</ol>,
   li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  code: ({ inline, children, ...props }: { inline?: boolean; children?: React.ReactNode; [key: string]: any }) =>
-    inline ? (
-      <code className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-800" {...props}>{children}</code>
-    ) : (
+  code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode; [key: string]: any }) => {
+    const isBlock = Boolean(className);
+    return isBlock ? (
       <code className="block bg-gray-900 text-gray-100 text-xs font-mono p-3 rounded-lg overflow-x-auto" {...props}>{children}</code>
-    ),
+    ) : (
+      <code className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-800" {...props}>{children}</code>
+    );
+  },
   pre: ({ children }) => <pre className="mb-2 overflow-x-auto">{children}</pre>,
   blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 mb-2">{children}</blockquote>,
 };
