@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { MessageResponse } from "../llm/types";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 import { buildComplexityPrompt, COMPLEXITY_SYSTEM } from "../prompts/complexity";
 
 interface ComplexityAnalyzerProps {
@@ -26,6 +27,7 @@ export function ComplexityAnalyzer({ code, language }: ComplexityAnalyzerProps) 
         payload: {
           prompt: buildComplexityPrompt(code, language),
           systemPrompt: COMPLEXITY_SYSTEM,
+          maxTokens: 4096,
         },
       }) as MessageResponse;
 
@@ -51,7 +53,7 @@ export function ComplexityAnalyzer({ code, language }: ComplexityAnalyzerProps) 
       {error && <p className="text-sm text-red-500">{error}</p>}
       {result && (
         <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-          <pre className="text-sm text-gray-700 whitespace-pre-wrap">{result}</pre>
+          <MarkdownRenderer content={result} />
         </div>
       )}
     </div>

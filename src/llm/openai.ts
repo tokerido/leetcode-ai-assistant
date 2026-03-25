@@ -8,7 +8,7 @@ export class OpenAIProvider implements LLMProvider {
     this.apiKey = apiKey;
   }
 
-  async complete(prompt: string, systemPrompt: string): Promise<string> {
+  async complete(prompt: string, systemPrompt: string, maxTokens = 4096): Promise<string> {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -21,7 +21,7 @@ export class OpenAIProvider implements LLMProvider {
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        max_tokens: 2048,
+        max_tokens: maxTokens,
       }),
     });
 
@@ -34,7 +34,7 @@ export class OpenAIProvider implements LLMProvider {
     return data.choices[0].message.content;
   }
 
-  async *stream(prompt: string, systemPrompt: string): AsyncGenerator<string> {
+  async *stream(prompt: string, systemPrompt: string, maxTokens = 4096): AsyncGenerator<string> {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -48,7 +48,7 @@ export class OpenAIProvider implements LLMProvider {
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        max_tokens: 2048,
+        max_tokens: maxTokens,
       }),
     });
 

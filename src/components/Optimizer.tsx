@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { MessageResponse } from "../llm/types";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 import { buildOptimizePrompt, OPTIMIZE_SYSTEM } from "../prompts/optimize";
 
 interface OptimizerProps {
@@ -27,6 +28,7 @@ export function Optimizer({ code, language, title }: OptimizerProps) {
         payload: {
           prompt: buildOptimizePrompt(code, title, language),
           systemPrompt: OPTIMIZE_SYSTEM,
+          maxTokens: 8192,
         },
       }) as MessageResponse;
 
@@ -52,7 +54,7 @@ export function Optimizer({ code, language, title }: OptimizerProps) {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {result && (
         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-          <pre className="text-sm text-gray-700 whitespace-pre-wrap">{result}</pre>
+          <MarkdownRenderer content={result} />
         </div>
       )}
     </div>
