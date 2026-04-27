@@ -9,7 +9,7 @@ A Chrome Extension that supercharges your LeetCode practice with AI-powered hint
 - **Error Explainer**: Paste a failing test case and get a plain-English explanation of the bug
 - **Optimizer**: Get a fully optimized rewrite with bullet-point explanation of changes and before/after complexity
 - **Statistics**: Automatically tracks problems you solve (detected via submission interception)
-- **Train by Company**: Filter practice problems by the company you're targeting
+- **Train by Company**: Filter practice problems by company — searchable across 662 companies sourced from [Code Jeet](https://github.com/ayush-that/codejeet) (17k+ questions)
 - **Train by Weakness**: Identify and drill your weakest problem categories
 - **Company Tags**: See which companies ask each problem directly on the problem page
 
@@ -61,24 +61,27 @@ Click the extension icon → open Settings, then enter your API key for whicheve
 ```
 src/
 ├── background/
-│   └── service-worker.ts     # All LLM/network calls; message router
+│   └── service-worker.ts        # All LLM/network calls; message router
 ├── content/
-│   └── index.ts              # Runs on leetcode.com; scrapes context, hooks Monaco
+│   └── index.ts                 # Runs on leetcode.com; scrapes context, hooks Monaco
 ├── sidepanel/
-│   └── App.tsx               # Main 8-tab UI panel
+│   └── App.tsx                  # Main 8-tab UI panel
 ├── popup/
-│   └── App.tsx               # Settings page (API keys + provider selection)
+│   └── App.tsx                  # Settings page (API keys + provider selection)
 ├── components/
-│   └── Statistics.tsx        # Stats UI component
+│   └── Statistics.tsx           # Stats UI component
 ├── llm/
-│   ├── router.ts             # Picks active LLM provider
+│   ├── router.ts                # Picks active LLM provider
 │   ├── claude.ts
 │   ├── openai.ts
 │   └── gemini.ts
 └── data/
-    └── company-tags.ts       # Static problem→company dataset (57 problems)
+    ├── company-tags.ts          # Re-export shell + helper functions
+    └── company-tags.generated.ts  # Generated: 3310 problems × 662 companies
+scripts/
+└── build-company-data.ts        # Regenerates company-tags.generated.ts from Code Jeet
 public/
-└── submission-interceptor.js # Intercepts XHR/fetch to detect accepted submissions
+└── submission-interceptor.js    # Intercepts XHR/fetch to detect accepted submissions
 ```
 
 ## Tech Stack
@@ -87,12 +90,14 @@ public/
 - **TypeScript** + **React** + **Tailwind CSS**
 - **Vite** + `vite-plugin-web-extension`
 - **LLM Providers**: Claude (`claude-opus-4-6`), OpenAI (`gpt-4o`), Gemini (`gemini-2.0-flash`)
+- **Data**: [Code Jeet](https://github.com/ayush-that/codejeet) (company→problem dataset), `papaparse` (CSV parsing), `tsx` (script runner)
 
 ## Testing
 
 ```bash
-npm run lint    # TypeScript type check
-npm run build   # Production build (must exit cleanly before committing)
+npm run lint        # TypeScript type check
+npm run build       # Production build (must exit cleanly before committing)
+npm run build:data  # Regenerate company dataset from Code Jeet (run when data updates)
 ```
 
 ## Contributing
