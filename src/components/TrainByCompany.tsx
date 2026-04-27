@@ -1,18 +1,27 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { getCompanies, getProblemsByCompany } from "../data/company-tags";
 import type { ProblemEntry } from "../data/company-tags";
 import type { Statistics } from "../storage/statistics";
 import type { MessageResponse } from "../llm/types";
 
 export function TrainByCompany() {
+  const [query, setQuery] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
   const [problems, setProblems] = useState<ProblemEntry[]>([]);
   const [solvedSlugs, setSolvedSlugs] = useState<Set<string>>(new Set());
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const companies = getCompanies();
+  const allCompanies = getCompanies();
+  const filtered = query.trim()
+    ? allCompanies.filter((c) => c.toLowerCase().includes(query.toLowerCase()))
+    : allCompanies;
 
   async function handleCompanySelect(company: string) {
     setSelectedCompany(company);
+    setQuery(company);
+    setIsOpen(false);
     const probs = getProblemsByCompany(company);
     setProblems(probs);
 
@@ -23,6 +32,30 @@ export function TrainByCompany() {
     }
   }
 
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuery(e.target.value);
+    setIsOpen(true);
+    if (e.target.value !== selectedCompany) {
+      setSelectedCompany("");
+      setProblems([]);
+    }
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        !inputRef.current?.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const difficultyColor = {
     Easy: "text-green-600",
     Medium: "text-yellow-600",
@@ -32,16 +65,42 @@ export function TrainByCompany() {
   return (
     <div className="p-4 space-y-3">
       <h2 className="text-lg font-semibold text-gray-800">Train by Company</h2>
-      <select
-        value={selectedCompany}
-        onChange={(e) => handleCompanySelect(e.target.value)}
-        className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-      >
-        <option value="">Select a company...</option>
-        {companies.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
+
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Search company..."
+          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+
+        {isOpen && filtered.length > 0 && (
+          <div
+            ref={dropdownRef}
+            className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+          >
+            {filtered.slice(0, 100).map((company) => (
+              <button
+                key={company}
+                onMouseDown={(e) => { e.preventDefault(); handleCompanySelect(company); }}
+                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 transition ${
+                  company === selectedCompany ? "bg-blue-100 font-medium" : "text-gray-700"
+                }`}
+              >
+                {company}
+              </button>
+            ))}
+            {filtered.length > 100 && (
+              <p className="px-3 py-1.5 text-xs text-gray-400">
+                {filtered.length - 100} more — type to narrow
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {problems.length > 0 && (
         <div className="space-y-2 max-h-96 overflow-y-auto">
