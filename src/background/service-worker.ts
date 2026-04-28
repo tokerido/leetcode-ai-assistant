@@ -8,18 +8,55 @@ import type { ProblemContext } from "../content/leetcode";
 
 const DEBUG = false;
 
-// Per-tab context cache so the side panel can retrieve context even when
-// it opens after the content script already sent PAGE_CONTEXT.
-const tabContextCache = new Map<number, ProblemContext | null>();
+// Per-tab context cache. Backed by chrome.storage.session so it survives
+// service-worker spin-downs (MV3 SWs idle out after ~30s).
+const TAB_CACHE_PREFIX = "tabCtx_";
+const cacheKey = (tabId: number) => `${TAB_CACHE_PREFIX}${tabId}`;
 
-chrome.tabs.onRemoved.addListener((tabId) => tabContextCache.delete(tabId));
+async function setTabContext(tabId: number, ctx: ProblemContext | null) {
+  await chrome.storage.session.set({ [cacheKey(tabId)]: ctx });
+}
+async function getTabContext(tabId: number): Promise<ProblemContext | null> {
+  const r = await chrome.storage.session.get(cacheKey(tabId));
+  return (r[cacheKey(tabId)] as ProblemContext | null) ?? null;
+}
+async function deleteTabContext(tabId: number) {
+  await chrome.storage.session.remove(cacheKey(tabId));
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => { deleteTabContext(tabId); });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  // Evict on navigation so stale context from the previous URL isn't served
-  if (changeInfo.status === "loading") tabContextCache.delete(tabId);
+  // Evict on full navigation so stale context isn't served. SPA URL changes
+  // don't fire status="loading", so they keep their cache (the content
+  // script will overwrite it via PAGE_CONTEXT anyway).
+  if (changeInfo.status === "loading") deleteTabContext(tabId);
 });
+
+const CONTENT_SCRIPT_FILE = "src/content/index.js";
+
+async function injectIntoOpenLeetCodeTabs() {
+  // Chrome does NOT auto-inject content scripts into pre-existing tabs after
+  // an extension install/reload. Catch them up so the panel can talk to them.
+  const tabs = await chrome.tabs.query({ url: "https://leetcode.com/problems/*" });
+  for (const tab of tabs) {
+    if (tab.id === undefined) continue;
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [CONTENT_SCRIPT_FILE] });
+      if (DEBUG) console.log(`[SW] Injected content script into tab ${tab.id}`);
+    } catch (err) {
+      // Ignore "Cannot access" / already-injected errors silently
+      if (DEBUG) console.warn(`[SW] Inject failed for tab ${tab.id}:`, err);
+    }
+  }
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  injectIntoOpenLeetCodeTabs();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  injectIntoOpenLeetCodeTabs();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -29,18 +66,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     case "PAGE_CONTEXT": {
       const tabId = _sender.tab?.id;
       if (tabId !== undefined) {
-        tabContextCache.set(tabId, req.payload as ProblemContext | null);
-        if (DEBUG) console.log(`[SW] Cached PAGE_CONTEXT for tab ${tabId}`);
+        setTabContext(tabId, req.payload as ProblemContext | null)
+          .then(() => sendResponse({ success: true } as MessageResponse))
+          .catch((err) => sendResponse({ success: false, error: (err as Error).message } as MessageResponse));
+        return true;
       }
-      sendResponse({ success: true } as MessageResponse);
+      sendResponse({ success: false, error: "No tab id" } as MessageResponse);
       return false;
     }
 
     case "GET_LATEST_CONTEXT": {
       const { tabId } = req.payload as { tabId: number };
-      const cached = tabContextCache.get(tabId) ?? null;
-      sendResponse({ success: true, data: cached } as MessageResponse);
-      return false;
+      getTabContext(tabId)
+        .then((data) => sendResponse({ success: true, data } as MessageResponse))
+        .catch((err) => sendResponse({ success: false, error: (err as Error).message } as MessageResponse));
+      return true;
+    }
+
+    case "ENSURE_CONTENT_SCRIPT": {
+      const { tabId } = req.payload as { tabId: number };
+      chrome.scripting.executeScript({ target: { tabId }, files: [CONTENT_SCRIPT_FILE] })
+        .then(() => sendResponse({ success: true } as MessageResponse))
+        .catch((err) => sendResponse({ success: false, error: (err as Error).message } as MessageResponse));
+      return true;
     }
 
     case "LLM_COMPLETE":
