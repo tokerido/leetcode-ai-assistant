@@ -9,6 +9,7 @@ import { TrainWeakness } from "../components/TrainWeakness";
 import { CompanyTags } from "../components/CompanyTags";
 import { getCompaniesForSlug } from "../data/company-tags";
 import { getSettings, saveSettings } from "../storage/settings";
+import { clearTabCacheIfSlugChanged } from "../storage/tabCache";
 import type { ProblemContext } from "../content/leetcode";
 import type { LLMSettings, LLMProviderName, MessageResponse } from "../llm/types";
 
@@ -102,8 +103,10 @@ export function App() {
     chrome.runtime.onMessage.addListener((message) => {
       if (message.type === "PAGE_CONTEXT") {
         const ctx = message.payload as ProblemContext;
-        setContext(ctx);
-        setCompanies(getCompaniesForSlug(ctx.slug));
+        clearTabCacheIfSlugChanged(ctx.slug).then(() => {
+          setContext(ctx);
+          setCompanies(getCompaniesForSlug(ctx.slug));
+        });
       }
       if (message.type === "PROBLEM_SOLVED") {
         setStatsRefreshKey(k => k + 1);
@@ -116,8 +119,10 @@ export function App() {
         chrome.tabs.sendMessage(tabs[0].id, { type: "GET_CONTEXT" }, (response: MessageResponse) => {
           if (response?.success && response.data) {
             const ctx = response.data as ProblemContext;
-            setContext(ctx);
-            setCompanies(getCompaniesForSlug(ctx.slug));
+            clearTabCacheIfSlugChanged(ctx.slug).then(() => {
+              setContext(ctx);
+              setCompanies(getCompaniesForSlug(ctx.slug));
+            });
           }
         });
       }
@@ -168,16 +173,16 @@ export function App() {
         ) : (
           <>
             {activeTab === "hints" && context && (
-              <Hints title={context.title} description={context.description} />
+              <Hints slug={context.slug} title={context.title} description={context.description} />
             )}
             {activeTab === "complexity" && context && (
-              <ComplexityAnalyzer code={context.code} language={context.language} />
+              <ComplexityAnalyzer slug={context.slug} code={context.code} language={context.language} />
             )}
             {activeTab === "errors" && context && (
-              <ErrorExplainer code={context.code} language={context.language} />
+              <ErrorExplainer slug={context.slug} code={context.code} language={context.language} />
             )}
             {activeTab === "optimize" && context && (
-              <Optimizer code={context.code} language={context.language} title={context.title} />
+              <Optimizer slug={context.slug} code={context.code} language={context.language} title={context.title} />
             )}
             {activeTab === "stats" && <Statistics refreshKey={statsRefreshKey} />}
             {activeTab === "company" && <TrainByCompany />}
