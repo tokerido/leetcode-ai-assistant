@@ -1,18 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import type { MessageResponse } from "../llm/types";
 import { buildHintsPrompt, HINTS_SYSTEM } from "../prompts/hints";
+import { getTabSlice, setTabSlice } from "../storage/tabCache";
 
 interface HintsProps {
+  slug: string;
   title: string;
   description: string;
 }
 
-export function Hints({ title, description }: HintsProps) {
+export function Hints({ slug, title, description }: HintsProps) {
   const [hints, setHints] = useState<string[]>([]);
   const [revealedCount, setRevealedCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setHints([]);
+    setRevealedCount(0);
+    setError("");
+    getTabSlice(slug, "hints").then((cached) => {
+      if (cached) {
+        setHints(cached.hints);
+        setRevealedCount(cached.revealedCount);
+      }
+    });
+  }, [slug]);
 
   async function loadHints() {
     setLoading(true);
@@ -30,23 +44,26 @@ export function Hints({ title, description }: HintsProps) {
       if (!response.success) throw new Error(response.error || "Failed to load hints");
 
       const text = response.data as string;
-      const hints = text
+      const parsed = text
         .split('\n')
         .filter(line => /^\d+\./.test(line.trim()))
         .map(line => line.replace(/^\d+\.\s*/, '').trim())
         .filter(Boolean);
-      if (hints.length > 0) {
-        setHints(hints);
-        setRevealedCount(1);
-      } else {
-        setHints([text]);
-        setRevealedCount(1);
-      }
+      const newHints = parsed.length > 0 ? parsed : [text];
+      setHints(newHints);
+      setRevealedCount(1);
+      await setTabSlice(slug, "hints", { hints: newHints, revealedCount: 1 });
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
+  }
+
+  function revealNext() {
+    const next = revealedCount + 1;
+    setRevealedCount(next);
+    setTabSlice(slug, "hints", { hints, revealedCount: next });
   }
 
   return (
@@ -70,7 +87,7 @@ export function Hints({ title, description }: HintsProps) {
       ))}
       {hints.length > 0 && revealedCount < hints.length && (
         <button
-          onClick={() => setRevealedCount((c) => c + 1)}
+          onClick={revealNext}
           className="w-full py-2 px-4 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm"
         >
           Next Hint ({revealedCount}/{hints.length})

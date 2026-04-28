@@ -1,18 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MessageResponse } from "../llm/types";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { buildErrorPrompt, ERRORS_SYSTEM } from "../prompts/errors";
+import { getTabSlice, setTabSlice } from "../storage/tabCache";
 
 interface ErrorExplainerProps {
+  slug: string;
   code: string;
   language: string;
 }
 
-export function ErrorExplainer({ code, language }: ErrorExplainerProps) {
+export function ErrorExplainer({ slug, code, language }: ErrorExplainerProps) {
   const [errorText, setErrorText] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setErrorText("");
+    setResult("");
+    setError("");
+    getTabSlice(slug, "errors").then((cached) => {
+      if (cached) {
+        setErrorText(cached.errorText);
+        setResult(cached.result);
+      }
+    });
+  }, [slug]);
+
+  function handleErrorTextChange(text: string) {
+    setErrorText(text);
+    setTabSlice(slug, "errors", { errorText: text, result });
+  }
 
   async function explain() {
     if (!errorText.trim()) {
@@ -33,7 +52,9 @@ export function ErrorExplainer({ code, language }: ErrorExplainerProps) {
       }) as MessageResponse;
 
       if (!response.success) throw new Error(response.error || "Failed to explain error");
-      setResult(response.data as string);
+      const text = response.data as string;
+      setResult(text);
+      await setTabSlice(slug, "errors", { errorText, result: text });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -46,7 +67,7 @@ export function ErrorExplainer({ code, language }: ErrorExplainerProps) {
       <h2 className="text-lg font-semibold text-gray-800">Explain Error</h2>
       <textarea
         value={errorText}
-        onChange={(e) => setErrorText(e.target.value)}
+        onChange={(e) => handleErrorTextChange(e.target.value)}
         placeholder="Paste your error message here..."
         className="w-full h-24 p-2 text-sm border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
       />
