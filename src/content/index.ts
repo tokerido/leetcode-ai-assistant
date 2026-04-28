@@ -5,6 +5,20 @@ const DEBUG = false;
 let lastSlug = "";
 let navDebounce: ReturnType<typeof setTimeout> | null = null;
 
+// Two-phase broadcast: send metadata immediately so the panel renders the
+// problem within ~200ms, then a second update once Monaco is loaded so the
+// code field is filled in.
+async function broadcastContext() {
+  const lite = getProblemContext(); // sync; code may be empty/partial
+  chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: lite });
+
+  const full = await getProblemContextAsync();
+  // Only re-broadcast if the code actually filled in (avoid an empty-overwriting-empty no-op)
+  if (full.code && full.code !== lite.code) {
+    chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: full });
+  }
+}
+
 // Initialize when page loads
 async function init() {
   const slug = getProblemSlug();
@@ -15,9 +29,7 @@ async function init() {
   injectSubmissionInterceptor();
   listenForAcceptedSubmission();
 
-  // Wait for Monaco before broadcasting context so code is never empty
-  const context = await getProblemContextAsync();
-  chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: context });
+  await broadcastContext();
 }
 
 function injectSubmissionInterceptor() {
@@ -43,8 +55,16 @@ function listenForAcceptedSubmission() {
 // Respond to side panel requesting context
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "GET_CONTEXT") {
-    getProblemContextAsync().then((data) => sendResponse({ success: true, data }));
-    return true; // keep message channel open for async response
+    // Reply immediately with whatever we have right now so the panel renders fast.
+    const lite = getProblemContext();
+    sendResponse({ success: true, data: lite });
+    // If code wasn't ready yet, await Monaco and push the full context as PAGE_CONTEXT.
+    if (!lite.code) {
+      getProblemContextAsync().then((full) => {
+        if (full.code) chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: full });
+      });
+    }
+    return false;
   }
 });
 
@@ -74,8 +94,7 @@ window.addEventListener("locationchange", () => {
     if (slug !== lastSlug) {
       lastSlug = slug;
       hookMonacoAutocomplete();
-      const context = await getProblemContextAsync();
-      chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: context });
+      await broadcastContext();
     }
   }, 300);
 });
