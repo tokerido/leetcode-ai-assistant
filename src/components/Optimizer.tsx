@@ -1,18 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MessageResponse } from "../llm/types";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { buildOptimizePrompt, OPTIMIZE_SYSTEM } from "../prompts/optimize";
+import { getTabSlice, setTabSlice } from "../storage/tabCache";
 
 interface OptimizerProps {
+  slug: string;
   code: string;
   language: string;
   title: string;
 }
 
-export function Optimizer({ code, language, title }: OptimizerProps) {
+export function Optimizer({ slug, code, language, title }: OptimizerProps) {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setResult("");
+    setError("");
+    getTabSlice(slug, "optimize").then((cached) => {
+      if (cached) setResult(cached.result);
+    });
+  }, [slug]);
 
   async function optimize() {
     if (!code.trim()) {
@@ -33,7 +43,9 @@ export function Optimizer({ code, language, title }: OptimizerProps) {
       }) as MessageResponse;
 
       if (!response.success) throw new Error(response.error || "Optimization failed");
-      setResult(response.data as string);
+      const text = response.data as string;
+      setResult(text);
+      await setTabSlice(slug, "optimize", { result: text });
     } catch (err) {
       setError((err as Error).message);
     } finally {

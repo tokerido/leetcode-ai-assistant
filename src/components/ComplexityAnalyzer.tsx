@@ -1,17 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MessageResponse } from "../llm/types";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { buildComplexityPrompt, COMPLEXITY_SYSTEM } from "../prompts/complexity";
+import { getTabSlice, setTabSlice } from "../storage/tabCache";
 
 interface ComplexityAnalyzerProps {
+  slug: string;
   code: string;
   language: string;
 }
 
-export function ComplexityAnalyzer({ code, language }: ComplexityAnalyzerProps) {
+export function ComplexityAnalyzer({ slug, code, language }: ComplexityAnalyzerProps) {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setResult("");
+    setError("");
+    getTabSlice(slug, "complexity").then((cached) => {
+      if (cached) setResult(cached.result);
+    });
+  }, [slug]);
 
   async function analyze() {
     if (!code.trim()) {
@@ -32,7 +42,9 @@ export function ComplexityAnalyzer({ code, language }: ComplexityAnalyzerProps) 
       }) as MessageResponse;
 
       if (!response.success) throw new Error(response.error || "Analysis failed");
-      setResult(response.data as string);
+      const text = response.data as string;
+      setResult(text);
+      await setTabSlice(slug, "complexity", { result: text });
     } catch (err) {
       setError((err as Error).message);
     } finally {
