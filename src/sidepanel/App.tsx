@@ -99,34 +99,73 @@ export function App() {
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   useEffect(() => {
-    // Listen for context updates from content script
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message.type === "PAGE_CONTEXT") {
-        const ctx = message.payload as ProblemContext;
-        clearTabCacheIfSlugChanged(ctx.slug).then(() => {
-          setContext(ctx);
-          setCompanies(getCompaniesForSlug(ctx.slug));
-        });
-      }
-      if (message.type === "PROBLEM_SOLVED") {
-        setStatsRefreshKey(k => k + 1);
-      }
-    });
+    function applyContext(ctx: ProblemContext | null) {
+      if (!ctx?.slug) { setContext(null); setCompanies([]); return; }
+      clearTabCacheIfSlugChanged(ctx.slug).then(() => {
+        setContext(ctx);
+        setCompanies(getCompaniesForSlug(ctx.slug));
+      });
+    }
 
-    // Try to get context from active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "GET_CONTEXT" }, (response: MessageResponse) => {
+    // Listen for push updates from content script (SPA nav, initial load)
+    const onMessage = (message: { type: string; payload?: unknown }) => {
+      if (message.type === "PAGE_CONTEXT") applyContext(message.payload as ProblemContext | null);
+      if (message.type === "PROBLEM_SOLVED") setStatsRefreshKey(k => k + 1);
+    };
+    chrome.runtime.onMessage.addListener(onMessage);
+
+    // On activation, pull context for the newly-active LeetCode tab
+    function fetchContextForTab(tabId: number) {
+      // 1. Check SW cache first for an immediate render
+      chrome.runtime.sendMessage({ type: "GET_LATEST_CONTEXT", payload: { tabId } }, (res: MessageResponse) => {
+        if (chrome.runtime.lastError) return;
+        if (res?.success && res.data) applyContext(res.data as ProblemContext);
+      });
+      // 2. Ask content script directly (may be fresher; retries once after 750ms if empty)
+      function askContentScript(attempt: number) {
+        chrome.tabs.sendMessage(tabId, { type: "GET_CONTEXT" }, (response: MessageResponse) => {
+          if (chrome.runtime.lastError) return;
           if (response?.success && response.data) {
-            const ctx = response.data as ProblemContext;
-            clearTabCacheIfSlugChanged(ctx.slug).then(() => {
-              setContext(ctx);
-              setCompanies(getCompaniesForSlug(ctx.slug));
-            });
+            applyContext(response.data as ProblemContext);
+          } else if (attempt === 0) {
+            setTimeout(() => askContentScript(1), 750);
           }
         });
       }
-    });
+      askContentScript(0);
+    }
+
+    // Find the active LeetCode problem tab (lastFocusedWindow is more reliable for side panels)
+    function queryActiveLeetCodeTab(callback: (tabId: number | null) => void) {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true, url: "https://leetcode.com/problems/*" }, (tabs) => {
+        if (tabs[0]?.id) { callback(tabs[0].id); return; }
+        // Fallback: any active tab in current window
+        chrome.tabs.query({ active: true, currentWindow: true, url: "https://leetcode.com/problems/*" }, (fallback) => {
+          callback(fallback[0]?.id ?? null);
+        });
+      });
+    }
+
+    queryActiveLeetCodeTab((tabId) => { if (tabId) fetchContextForTab(tabId); });
+
+    // Re-fetch when user switches tabs
+    const onActivated = (info: chrome.tabs.TabActiveInfo) => {
+      chrome.tabs.get(info.tabId, (tab) => {
+        if (chrome.runtime.lastError) return;
+        if (tab.url?.match(/https:\/\/leetcode\.com\/problems\//)) {
+          fetchContextForTab(info.tabId);
+        } else {
+          setContext(null);
+          setCompanies([]);
+        }
+      });
+    };
+    chrome.tabs.onActivated.addListener(onActivated);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(onMessage);
+      chrome.tabs.onActivated.removeListener(onActivated);
+    };
   }, []);
 
   return (

@@ -4,8 +4,19 @@ import { getSettings, saveSettings } from "../storage/settings";
 import { getStatistics, saveStatistics, recordSolvedProblem } from "../storage/statistics";
 import type { Statistics, SolvedProblem } from "../storage/statistics";
 import { COMPANY_PROBLEMS } from "../data/company-tags";
+import type { ProblemContext } from "../content/leetcode";
 
 const DEBUG = false;
+
+// Per-tab context cache so the side panel can retrieve context even when
+// it opens after the content script already sent PAGE_CONTEXT.
+const tabContextCache = new Map<number, ProblemContext | null>();
+
+chrome.tabs.onRemoved.addListener((tabId) => tabContextCache.delete(tabId));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  // Evict on navigation so stale context from the previous URL isn't served
+  if (changeInfo.status === "loading") tabContextCache.delete(tabId);
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -15,6 +26,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const req = message as { type: string; payload?: unknown };
 
   switch (req.type) {
+    case "PAGE_CONTEXT": {
+      const tabId = _sender.tab?.id;
+      if (tabId !== undefined) {
+        tabContextCache.set(tabId, req.payload as ProblemContext | null);
+        if (DEBUG) console.log(`[SW] Cached PAGE_CONTEXT for tab ${tabId}`);
+      }
+      sendResponse({ success: true } as MessageResponse);
+      return false;
+    }
+
+    case "GET_LATEST_CONTEXT": {
+      const { tabId } = req.payload as { tabId: number };
+      const cached = tabContextCache.get(tabId) ?? null;
+      sendResponse({ success: true, data: cached } as MessageResponse);
+      return false;
+    }
+
     case "LLM_COMPLETE":
       handleLLMComplete(req.payload as LLMCompleteRequest)
         .then((data) => sendResponse({ success: true, data } as MessageResponse))
