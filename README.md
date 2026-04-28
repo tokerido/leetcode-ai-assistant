@@ -8,6 +8,7 @@ A Chrome Extension that supercharges your LeetCode practice with AI-powered hint
 - **Complexity Analysis**: Instant time and space complexity breakdown of your current code, rendered with proper markdown formatting
 - **Error Explainer**: Paste a failing test case and get a plain-English explanation of the bug
 - **Optimizer**: Get a fully optimized rewrite with bullet-point explanation of changes and before/after complexity
+- **Per-problem answer persistence**: AI responses survive tab switches and sidepanel close/reopen — no re-fetching when you move between tabs; cache clears automatically when you navigate to a new problem
 - **Statistics**: Automatically tracks problems you solve (detected via submission interception)
 - **Train by Company**: Filter practice problems by company — searchable across 662 companies sourced from [Code Jeet](https://github.com/ayush-that/codejeet) (17k+ questions)
 - **Train by Weakness**: Identify and drill your weakest problem categories
@@ -70,6 +71,10 @@ src/
 │   └── App.tsx                  # Settings page (API keys + provider selection)
 ├── components/
 │   └── Statistics.tsx           # Stats UI component
+├── storage/
+│   ├── settings.ts              # API keys + active provider (chrome.storage.sync)
+│   ├── statistics.ts            # Solved-problem stats (chrome.storage.local)
+│   └── tabCache.ts              # Per-problem tab answer cache (chrome.storage.session)
 ├── llm/
 │   ├── router.ts                # Picks active LLM provider
 │   ├── claude.ts
