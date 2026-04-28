@@ -39,29 +39,56 @@ export function getEditorLanguage(): string {
   return el?.textContent?.trim()?.toLowerCase() || "python3";
 }
 
-export function getEditorCode(): string {
-  // Try Monaco editor
+type MonacoWindow = { monaco?: { editor?: { getModels?: () => { getValue: () => string }[] } } };
+
+function readMonacoCode(): string {
   try {
-    const monacoGlobal = (window as unknown as { monaco?: { editor?: { getModels?: () => { getValue: () => string }[] } } }).monaco;
+    const monacoGlobal = (window as unknown as MonacoWindow).monaco;
     if (monacoGlobal?.editor?.getModels) {
       const models = monacoGlobal.editor.getModels();
-      if (models.length > 0) {
-        return models[0].getValue();
-      }
+      if (models.length > 0) return models[0].getValue();
     }
-  } catch {
-    // fallback
-  }
+  } catch { /* fall through */ }
+  return "";
+}
 
-  // Try CodeMirror
+export function getEditorCode(): string {
+  const monacoCode = readMonacoCode();
+  if (monacoCode) return monacoCode;
+
   const cmEditor = document.querySelector(".CodeMirror") as HTMLElement & { CodeMirror?: { getValue: () => string } };
-  if (cmEditor?.CodeMirror) {
-    return cmEditor.CodeMirror.getValue();
-  }
+  if (cmEditor?.CodeMirror) return cmEditor.CodeMirror.getValue();
 
-  // Fallback: get visible text from editor
-  const editorEl = document.querySelector(".view-lines");
-  return editorEl?.textContent || "";
+  return document.querySelector(".view-lines")?.textContent || "";
+}
+
+export function getEditorCodeAsync(budgetMs = 5000, intervalMs = 100): Promise<string> {
+  return new Promise((resolve) => {
+    const monacoCode = readMonacoCode();
+    if (monacoCode) { resolve(monacoCode); return; }
+
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed += intervalMs;
+      const code = readMonacoCode();
+      if (code || elapsed >= budgetMs) {
+        clearInterval(timer);
+        resolve(code || getEditorCode()); // getEditorCode handles CodeMirror + .view-lines fallback
+      }
+    }, intervalMs);
+  });
+}
+
+export async function getProblemContextAsync(): Promise<ProblemContext> {
+  return {
+    slug: getProblemSlug(),
+    title: getProblemTitle(),
+    description: getProblemDescription(),
+    language: getEditorLanguage(),
+    code: await getEditorCodeAsync(),
+    difficulty: getDifficulty(),
+    companies: [],
+  };
 }
 
 export function getDifficulty(): string {
@@ -94,3 +121,4 @@ export function getProblemContext(): ProblemContext {
     companies: [],
   };
 }
+

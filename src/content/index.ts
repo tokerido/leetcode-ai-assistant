@@ -1,22 +1,19 @@
-import { getProblemContext, getProblemSlug } from "./leetcode";
+import { getProblemContext, getProblemContextAsync, getProblemSlug } from "./leetcode";
 import { hookMonacoAutocomplete } from "./monaco";
 
 const DEBUG = false;
 
 // Initialize when page loads
-function init() {
+async function init() {
   const slug = getProblemSlug();
   if (!slug) return;
 
-  // Hook Monaco autocomplete
   hookMonacoAutocomplete();
-
-  // Inject fetch interceptor and listen for accepted submissions
   injectSubmissionInterceptor();
   listenForAcceptedSubmission();
 
-  // Notify sidepanel that we're on a problem page
-  const context = getProblemContext();
+  // Wait for Monaco before broadcasting context so code is never empty
+  const context = await getProblemContextAsync();
   chrome.runtime.sendMessage({ type: "PAGE_CONTEXT", payload: context });
 }
 
@@ -43,7 +40,8 @@ function listenForAcceptedSubmission() {
 // Respond to side panel requesting context
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "GET_CONTEXT") {
-    sendResponse({ success: true, data: getProblemContext() });
+    getProblemContextAsync().then((data) => sendResponse({ success: true, data }));
+    return true; // keep message channel open for async response
   }
 });
 
