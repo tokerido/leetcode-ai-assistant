@@ -99,34 +99,92 @@ export function App() {
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
   useEffect(() => {
-    // Listen for context updates from content script
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message.type === "PAGE_CONTEXT") {
-        const ctx = message.payload as ProblemContext;
-        clearTabCacheIfSlugChanged(ctx.slug).then(() => {
-          setContext(ctx);
-          setCompanies(getCompaniesForSlug(ctx.slug));
-        });
-      }
-      if (message.type === "PROBLEM_SOLVED") {
-        setStatsRefreshKey(k => k + 1);
-      }
-    });
+    // Track the last context we rendered so we don't downgrade a full snapshot
+    // (with code) back to a lite snapshot (without code) for the same slug.
+    let current: ProblemContext | null = null;
 
-    // Try to get context from active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "GET_CONTEXT" }, (response: MessageResponse) => {
-          if (response?.success && response.data) {
-            const ctx = response.data as ProblemContext;
-            clearTabCacheIfSlugChanged(ctx.slug).then(() => {
-              setContext(ctx);
-              setCompanies(getCompaniesForSlug(ctx.slug));
-            });
-          }
-        });
+    function applyContext(ctx: ProblemContext | null) {
+      if (!ctx?.slug) {
+        if (current === null) return;
+        current = null;
+        setContext(null);
+        setCompanies([]);
+        return;
       }
-    });
+      // Don't downgrade: if same slug and incoming is missing code we already have, ignore.
+      if (current && current.slug === ctx.slug && current.code && !ctx.code) return;
+      current = ctx;
+      clearTabCacheIfSlugChanged(ctx.slug).then(() => {
+        setContext(ctx);
+        setCompanies(getCompaniesForSlug(ctx.slug));
+      });
+    }
+
+    // Listen for push updates from content script (SPA nav, initial load, code-ready follow-up)
+    const onMessage = (message: { type: string; payload?: unknown }) => {
+      if (message.type === "PAGE_CONTEXT") applyContext(message.payload as ProblemContext | null);
+      if (message.type === "PROBLEM_SOLVED") setStatsRefreshKey(k => k + 1);
+    };
+    chrome.runtime.onMessage.addListener(onMessage);
+
+    function askContentScript(tabId: number) {
+      chrome.tabs.sendMessage(tabId, { type: "GET_CONTEXT" }, (response: MessageResponse) => {
+        if (chrome.runtime.lastError) {
+          // Content script isn't running in this tab (e.g. extension was reloaded
+          // while the tab was open). Ask the SW to inject it; the new content
+          // script will then broadcast PAGE_CONTEXT on its own.
+          chrome.runtime.sendMessage(
+            { type: "ENSURE_CONTENT_SCRIPT", payload: { tabId } },
+            () => { void chrome.runtime.lastError; }
+          );
+          return;
+        }
+        if (response?.success && response.data) applyContext(response.data as ProblemContext);
+      });
+    }
+
+    function fetchContextForTab(tabId: number) {
+      // 1. Cache hit → immediate render.
+      chrome.runtime.sendMessage({ type: "GET_LATEST_CONTEXT", payload: { tabId } }, (res: MessageResponse) => {
+        if (chrome.runtime.lastError) { void chrome.runtime.lastError; return; }
+        if (res?.success && res.data) applyContext(res.data as ProblemContext);
+      });
+      // 2. Ask the content script directly — it returns whatever it has right now (lite),
+      //    and pushes a follow-up PAGE_CONTEXT once Monaco is ready.
+      askContentScript(tabId);
+    }
+
+    function queryActiveLeetCodeTab(callback: (tabId: number | null) => void) {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true, url: "https://leetcode.com/problems/*" }, (tabs) => {
+        if (tabs[0]?.id) { callback(tabs[0].id); return; }
+        chrome.tabs.query({ active: true, currentWindow: true, url: "https://leetcode.com/problems/*" }, (fallback) => {
+          callback(fallback[0]?.id ?? null);
+        });
+      });
+    }
+
+    queryActiveLeetCodeTab((tabId) => { if (tabId) fetchContextForTab(tabId); });
+
+    const onActivated = (info: chrome.tabs.TabActiveInfo) => {
+      chrome.tabs.get(info.tabId, (tab) => {
+        if (chrome.runtime.lastError) { void chrome.runtime.lastError; return; }
+        if (tab.url?.match(/https:\/\/leetcode\.com\/problems\//)) {
+          // Reset tracker so a tab switch always pulls fresh state.
+          current = null;
+          fetchContextForTab(info.tabId);
+        } else {
+          current = null;
+          setContext(null);
+          setCompanies([]);
+        }
+      });
+    };
+    chrome.tabs.onActivated.addListener(onActivated);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(onMessage);
+      chrome.tabs.onActivated.removeListener(onActivated);
+    };
   }, []);
 
   return (
